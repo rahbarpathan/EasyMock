@@ -4,7 +4,7 @@ import { Clock, Award, Trash2, ArrowUpRight, CheckCircle2, History } from 'lucid
 
 interface RecentHistoryProps {
   history: TestHistoryItem[];
-  onSelectResult: (result: TestResult) => void;
+  onSelectResult: (result: TestResult, historyItem?: TestHistoryItem) => void;
   onClearHistory: () => void;
   onDeleteHistoryItem: (id: string) => void;
 }
@@ -99,8 +99,8 @@ export const RecentHistory: React.FC<RecentHistoryProps> = ({
 
                 <div className="flex items-center space-x-1">
                   <button
-                    onClick={() => onSelectResult(item.resultData)}
-                    className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 font-semibold text-xs flex items-center transition"
+                    onClick={() => onSelectResult(item.resultData || (item as unknown as TestResult), item)}
+                    className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 font-semibold text-xs flex items-center transition cursor-pointer"
                     title="View Performance Analysis"
                   >
                     <span>View Report</span>

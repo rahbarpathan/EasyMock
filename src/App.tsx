@@ -4,6 +4,9 @@ import { Header } from './components/common/Header';
 import { SetupScreen } from './components/setup/SetupScreen';
 import { ExamScreen } from './components/exam/ExamScreen';
 import { ResultScreen } from './components/results/ResultScreen';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { normalizeTestResult } from './utils/scoring';
+import { AlertCircle } from 'lucide-react';
 import {
   getActiveSession,
   saveActiveSession,
@@ -130,18 +133,23 @@ export const App: React.FC = () => {
   // Retake test
   const handleRetakeTest = () => {
     if (!currentResult) return;
-    const questionsWithoutAnswers = currentResult.questions.map((q) => {
+    const questionsWithoutAnswers = (currentResult.questions || []).map((q) => {
       const { selectedAnswer, isAttempted, isCorrect, status, timeSpentSeconds, scoreAwarded, ...rawQ } = q;
       return rawQ;
     });
 
+    if (questionsWithoutAnswers.length === 0) {
+      alert('Question content is not available for this archived attempt. Please create a new mock test.');
+      return;
+    }
+
     const config: TestConfig = {
       testName: currentResult.testName,
-      durationMinutes: currentResult.durationMinutes,
-      enableNegativeMarking: currentResult.negativeMarksPerQuestion > 0,
+      durationMinutes: currentResult.durationMinutes || 60,
+      enableNegativeMarking: (currentResult.negativeMarksPerQuestion ?? 0) > 0,
       negativeScheme: 'quarter',
-      customNegativeMarks: currentResult.negativeMarksPerQuestion,
-      marksPerQuestion: currentResult.marksPerQuestion,
+      customNegativeMarks: currentResult.negativeMarksPerQuestion ?? 0,
+      marksPerQuestion: currentResult.marksPerQuestion ?? 1,
       shuffleQuestions: false,
       shuffleOptions: false,
       enableFullscreen: false,
@@ -160,8 +168,9 @@ export const App: React.FC = () => {
   };
 
   // View past result from history
-  const handleSelectHistoryResult = (result: TestResult) => {
-    setCurrentResult(result);
+  const handleSelectHistoryResult = (result?: TestResult, historyItem?: TestHistoryItem) => {
+    const normalized = normalizeTestResult(result, historyItem);
+    setCurrentResult(normalized);
     setCurrentView('results');
   };
 
@@ -186,33 +195,53 @@ export const App: React.FC = () => {
       />
 
       <main className="flex-1">
-        {currentView === 'setup' && (
-          <SetupScreen
-            onStartExam={handleStartExam}
-            activeSession={activeSession}
-            onResumeActiveSession={handleResumeActiveSession}
-            onDiscardActiveSession={handleDiscardActiveSession}
-            history={history}
-            onSelectHistoryResult={handleSelectHistoryResult}
-            onClearHistory={handleClearHistory}
-            onDeleteHistoryItem={handleDeleteHistoryItem}
-          />
-        )}
+        <ErrorBoundary onReset={() => setCurrentView('setup')}>
+          {currentView === 'setup' && (
+            <SetupScreen
+              onStartExam={handleStartExam}
+              activeSession={activeSession}
+              onResumeActiveSession={handleResumeActiveSession}
+              onDiscardActiveSession={handleDiscardActiveSession}
+              history={history}
+              onSelectHistoryResult={handleSelectHistoryResult}
+              onClearHistory={handleClearHistory}
+              onDeleteHistoryItem={handleDeleteHistoryItem}
+            />
+          )}
 
-        {currentView === 'exam' && activeSession && (
-          <ExamScreen
-            session={activeSession}
-            onTestComplete={handleTestComplete}
-          />
-        )}
+          {currentView === 'exam' && activeSession && (
+            <ExamScreen
+              session={activeSession}
+              onTestComplete={handleTestComplete}
+            />
+          )}
 
-        {currentView === 'results' && currentResult && (
-          <ResultScreen
-            result={currentResult}
-            onRetakeTest={handleRetakeTest}
-            onCreateNewTest={handleCreateNewTest}
-          />
-        )}
+          {currentView === 'results' && (
+            currentResult ? (
+              <ResultScreen
+                result={currentResult}
+                onRetakeTest={handleRetakeTest}
+                onCreateNewTest={handleCreateNewTest}
+              />
+            ) : (
+              <div className="max-w-xl mx-auto my-16 p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-4 shadow-xs">
+                <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <h2 className="text-xl font-bold text-slate-800">No Report Selected</h2>
+                <p className="text-sm text-slate-500">
+                  The requested test report could not be found or has expired.
+                </p>
+                <button
+                  onClick={handleCreateNewTest}
+                  className="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl text-sm hover:bg-indigo-700 transition cursor-pointer"
+                >
+                  Return to Test Setup
+                </button>
+              </div>
+            )
+          )}
+        </ErrorBoundary>
       </main>
 
       {/* Footer (only visible outside exam mode) */}

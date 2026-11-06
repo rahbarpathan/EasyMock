@@ -7,29 +7,37 @@ interface ResultAnalyticsProps {
 }
 
 export const ResultAnalytics: React.FC<ResultAnalyticsProps> = ({ result }) => {
-  const { totalQuestions, correct, incorrect, unanswered, attempted, timeTakenSeconds } = result;
+  const totalQuestions = Number(result.totalQuestions) || 0;
+  const correct = Number(result.correct) || 0;
+  const incorrect = Number(result.incorrect) || 0;
+  const unanswered = Number(result.unanswered) || 0;
+  const attempted = Number(result.attempted) || 0;
+  const timeTakenSeconds = Number(result.timeTakenSeconds) || 0;
+  const accuracyPercentage = Number(result.accuracyPercentage) || 0;
+  const scorePercentage = Number(result.scorePercentage) || 0;
 
   // Doughnut Chart Geometry (radius 60, circumference ~ 376.99)
   const radius = 60;
   const circumference = 2 * Math.PI * radius;
 
-  const correctFraction = totalQuestions > 0 ? correct / totalQuestions : 0;
-  const incorrectFraction = totalQuestions > 0 ? incorrect / totalQuestions : 0;
-  const unansweredFraction = totalQuestions > 0 ? unanswered / totalQuestions : 0;
+  const correctFraction = totalQuestions > 0 ? Math.max(0, correct / totalQuestions) : 0;
+  const incorrectFraction = totalQuestions > 0 ? Math.max(0, incorrect / totalQuestions) : 0;
+  const unansweredFraction = totalQuestions > 0 ? Math.max(0, unanswered / totalQuestions) : 0;
 
   const correctOffset = 0;
-  const correctLength = correctFraction * circumference;
+  const correctLength = isNaN(correctFraction) ? 0 : correctFraction * circumference;
 
   const incorrectOffset = -correctLength;
-  const incorrectLength = incorrectFraction * circumference;
+  const incorrectLength = isNaN(incorrectFraction) ? 0 : incorrectFraction * circumference;
 
   const unansweredOffset = -(correctLength + incorrectLength);
-  const unansweredLength = unansweredFraction * circumference;
+  const unansweredLength = isNaN(unansweredFraction) ? 0 : unansweredFraction * circumference;
 
   // Format time taken
-  const formatTime = (secs: number) => {
-    const mins = Math.floor(secs / 60);
-    const remSecs = secs % 60;
+  const formatTime = (secs: number = 0) => {
+    const validSecs = isNaN(secs) || secs < 0 ? 0 : secs;
+    const mins = Math.floor(validSecs / 60);
+    const remSecs = validSecs % 60;
     if (mins === 0) return `${remSecs}s`;
     return `${mins}m ${remSecs}s`;
   };
@@ -97,7 +105,7 @@ export const ResultAnalytics: React.FC<ResultAnalyticsProps> = ({ result }) => {
 
           {/* Center text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-extrabold text-slate-900">{result.scorePercentage}%</span>
+            <span className="text-2xl font-extrabold text-slate-900">{scorePercentage}%</span>
             <span className="text-[11px] font-semibold text-slate-400">Score Share</span>
           </div>
         </div>
@@ -131,12 +139,12 @@ export const ResultAnalytics: React.FC<ResultAnalyticsProps> = ({ result }) => {
                 <Target className="w-3.5 h-3.5 mr-1 text-indigo-600" />
                 Accuracy Rate
               </span>
-              <span className="text-slate-900 font-bold">{result.accuracyPercentage}%</span>
+              <span className="text-slate-900 font-bold">{accuracyPercentage}%</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
               <div
                 className="bg-indigo-600 h-2.5 rounded-full transition-all duration-700"
-                style={{ width: `${Math.min(100, result.accuracyPercentage)}%` }}
+                style={{ width: `${Math.min(100, Math.max(0, accuracyPercentage))}%` }}
               />
             </div>
             <span className="text-[11px] text-slate-400 mt-1 block">

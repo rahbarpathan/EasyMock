@@ -3,15 +3,18 @@ import { ScoredQuestion } from '../../types';
 import { CheckCircle2, XCircle, MinusCircle, Bookmark, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 
 interface QuestionReviewProps {
-  questions: ScoredQuestion[];
-  hasAnswerKey: boolean;
+  questions?: ScoredQuestion[];
+  hasAnswerKey?: boolean;
 }
 
-export const QuestionReview: React.FC<QuestionReviewProps> = ({ questions, hasAnswerKey }) => {
+export const QuestionReview: React.FC<QuestionReviewProps> = ({ questions = [], hasAnswerKey = false }) => {
   const [filter, setFilter] = useState<'all' | 'correct' | 'incorrect' | 'unanswered' | 'marked'>('all');
   const [activeQuestionIndex, setActiveQuestionIndex] = useState<number>(0);
 
-  const filteredQuestions = questions.filter((q) => {
+  const safeQuestions = Array.isArray(questions) ? questions : [];
+
+  const filteredQuestions = safeQuestions.filter((q) => {
+    if (!q) return false;
     if (filter === 'correct') return q.isCorrect === true;
     if (filter === 'incorrect') return q.isCorrect === false;
     if (filter === 'unanswered') return !q.isAttempted;
@@ -22,6 +25,9 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ questions, hasAn
   const currentQ = filteredQuestions[activeQuestionIndex] || filteredQuestions[0];
 
   const getStatusBadge = (q: ScoredQuestion) => {
+    const marks = typeof q.marks === 'number' && !isNaN(q.marks) ? q.marks : 1;
+    const negMarks = typeof q.negativeMarks === 'number' && !isNaN(q.negativeMarks) ? q.negativeMarks : 0;
+
     if (!hasAnswerKey) {
       return (
         <span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
@@ -33,7 +39,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ questions, hasAn
       return (
         <span className="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
           <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-          Correct (+{q.marks.toFixed(2)})
+          Correct (+{marks.toFixed(2)})
         </span>
       );
     }
@@ -41,7 +47,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ questions, hasAn
       return (
         <span className="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200">
           <XCircle className="w-3.5 h-3.5 mr-1 text-rose-600" />
-          Incorrect (-{q.negativeMarks.toFixed(2)})
+          Incorrect (-{negMarks.toFixed(2)})
         </span>
       );
     }
@@ -77,7 +83,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ questions, hasAn
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            All ({questions.length})
+            All ({safeQuestions.length})
           </button>
           {hasAnswerKey && (
             <>
@@ -92,7 +98,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ questions, hasAn
                     : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60'
                 }`}
               >
-                Correct ({questions.filter(q => q.isCorrect === true).length})
+                Correct ({safeQuestions.filter(q => q.isCorrect === true).length})
               </button>
               <button
                 onClick={() => {
@@ -105,7 +111,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ questions, hasAn
                     : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200/60'
                 }`}
               >
-                Incorrect ({questions.filter(q => q.isCorrect === false).length})
+                Incorrect ({safeQuestions.filter(q => q.isCorrect === false).length})
               </button>
             </>
           )}
@@ -120,7 +126,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ questions, hasAn
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            Unanswered ({questions.filter(q => !q.isAttempted).length})
+            Unanswered ({safeQuestions.filter(q => !q.isAttempted).length})
           </button>
           <button
             onClick={() => {
@@ -133,7 +139,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ questions, hasAn
                 : 'bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200/60'
             }`}
           >
-            Marked ({questions.filter(q => q.status === 'marked_for_review' || q.status === 'answered_marked_for_review').length})
+            Marked ({safeQuestions.filter(q => q.status === 'marked_for_review' || q.status === 'answered_marked_for_review').length})
           </button>
         </div>
       </div>
@@ -201,57 +207,63 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ questions, hasAn
 
               {/* Options Breakdown with Visual Status */}
               <div className="space-y-3">
-                {Object.entries(currentQ.options).map(([key, text]) => {
-                  const isUserSelection = currentQ.selectedAnswer === key;
-                  const isCorrectKey = currentQ.correctAnswer === key;
+                {Object.entries(currentQ.options || {}).length === 0 ? (
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500 italic">
+                    No options recorded for this question.
+                  </div>
+                ) : (
+                  Object.entries(currentQ.options || {}).map(([key, text]) => {
+                    const isUserSelection = currentQ.selectedAnswer === key;
+                    const isCorrectKey = currentQ.correctAnswer === key;
 
-                  let cardStyle = 'border-slate-200 bg-white text-slate-700';
-                  let badgeStyle = 'bg-slate-100 text-slate-700 border-slate-300';
-                  let feedbackTag = null;
+                    let cardStyle = 'border-slate-200 bg-white text-slate-700';
+                    let badgeStyle = 'bg-slate-100 text-slate-700 border-slate-300';
+                    let feedbackTag = null;
 
-                  if (hasAnswerKey) {
-                    if (isCorrectKey) {
-                      cardStyle = 'border-emerald-500 bg-emerald-50/60 text-emerald-950 font-medium';
-                      badgeStyle = 'bg-emerald-600 text-white border-emerald-600';
+                    if (hasAnswerKey) {
+                      if (isCorrectKey) {
+                        cardStyle = 'border-emerald-500 bg-emerald-50/60 text-emerald-950 font-medium';
+                        badgeStyle = 'bg-emerald-600 text-white border-emerald-600';
+                        feedbackTag = (
+                          <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider bg-emerald-100 px-2 py-0.5 rounded ml-auto">
+                            Correct Solution
+                          </span>
+                        );
+                      } else if (isUserSelection && !isCorrectKey) {
+                        cardStyle = 'border-rose-400 bg-rose-50/60 text-rose-950';
+                        badgeStyle = 'bg-rose-500 text-white border-rose-500';
+                        feedbackTag = (
+                          <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider bg-rose-100 px-2 py-0.5 rounded ml-auto">
+                            Your Answer (Incorrect)
+                          </span>
+                        );
+                      }
+                    } else if (isUserSelection) {
+                      cardStyle = 'border-indigo-500 bg-indigo-50/60 text-indigo-950 font-medium';
+                      badgeStyle = 'bg-indigo-600 text-white border-indigo-600';
                       feedbackTag = (
-                        <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider bg-emerald-100 px-2 py-0.5 rounded ml-auto">
-                          Correct Solution
-                        </span>
-                      );
-                    } else if (isUserSelection && !isCorrectKey) {
-                      cardStyle = 'border-rose-400 bg-rose-50/60 text-rose-950';
-                      badgeStyle = 'bg-rose-500 text-white border-rose-500';
-                      feedbackTag = (
-                        <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider bg-rose-100 px-2 py-0.5 rounded ml-auto">
-                          Your Answer (Incorrect)
+                        <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider bg-indigo-100 px-2 py-0.5 rounded ml-auto">
+                          Your Choice
                         </span>
                       );
                     }
-                  } else if (isUserSelection) {
-                    cardStyle = 'border-indigo-500 bg-indigo-50/60 text-indigo-950 font-medium';
-                    badgeStyle = 'bg-indigo-600 text-white border-indigo-600';
-                    feedbackTag = (
-                      <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider bg-indigo-100 px-2 py-0.5 rounded ml-auto">
-                        Your Choice
-                      </span>
-                    );
-                  }
 
-                  return (
-                    <div
-                      key={key}
-                      className={`p-3.5 rounded-xl border flex items-center space-x-3 transition ${cardStyle}`}
-                    >
-                      <span
-                        className={`w-6 h-6 rounded-md font-bold text-xs flex items-center justify-center border shrink-0 ${badgeStyle}`}
+                    return (
+                      <div
+                        key={key}
+                        className={`p-3.5 rounded-xl border flex items-center space-x-3 transition ${cardStyle}`}
                       >
-                        {key}
-                      </span>
-                      <span className="text-sm flex-1 leading-snug">{text}</span>
-                      {feedbackTag}
-                    </div>
-                  );
-                })}
+                        <span
+                          className={`w-6 h-6 rounded-md font-bold text-xs flex items-center justify-center border shrink-0 ${badgeStyle}`}
+                        >
+                          {key}
+                        </span>
+                        <span className="text-sm flex-1 leading-snug">{text}</span>
+                        {feedbackTag}
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
               {/* Explanation (if present in original question data) */}

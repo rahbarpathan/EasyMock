@@ -41,7 +41,7 @@ interface SetupScreenProps {
   onResumeActiveSession: () => void;
   onDiscardActiveSession: () => void;
   history: TestHistoryItem[];
-  onSelectHistoryResult: (result: TestResult) => void;
+  onSelectHistoryResult: (result: TestResult, historyItem?: TestHistoryItem) => void;
   onClearHistory: () => void;
   onDeleteHistoryItem: (id: string) => void;
 }

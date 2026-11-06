@@ -28,9 +28,19 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   onRetakeTest,
   onCreateNewTest,
 }) => {
+  const marksPerQ = typeof result.marksPerQuestion === 'number' && !isNaN(result.marksPerQuestion) ? result.marksPerQuestion : 1;
+  const negMarksPerQ = typeof result.negativeMarksPerQuestion === 'number' && !isNaN(result.negativeMarksPerQuestion) ? result.negativeMarksPerQuestion : 0;
+  const correctCount = Number(result.correct) || 0;
+  const incorrectCount = Number(result.incorrect) || 0;
+  const unansweredCount = Number(result.unanswered) || 0;
+  const finalScoreVal = Number(result.finalScore) || 0;
+  const maxScoreVal = Number(result.maxScore) || 0;
+  const accuracyVal = Number(result.accuracyPercentage) || 0;
+  const scorePercentVal = Number(result.scorePercentage) || 0;
+
   // Trigger celebratory confetti on good score
   useEffect(() => {
-    if (result.hasAnswerKey && result.accuracyPercentage >= 70) {
+    if (result.hasAnswerKey && accuracyVal >= 70) {
       try {
         confetti({
           particleCount: 80,
@@ -41,13 +51,18 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         // Safe fallback if canvas not available
       }
     }
-  }, [result]);
+  }, [result, accuracyVal]);
 
   const handlePrint = () => {
     window.print();
   };
 
-  const isGoodScore = result.accuracyPercentage >= 65;
+  const formatSubmittedDate = (timestamp?: number) => {
+    if (!timestamp) return 'Recently';
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return 'Recently';
+    return date.toLocaleDateString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-200">
@@ -57,7 +72,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500 mb-1">
             <span>Exam Result Report</span>
             <span>•</span>
-            <span>{new Date(result.submittedAt).toLocaleDateString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+            <span>{formatSubmittedDate(result.submittedAt)}</span>
             {result.submissionType === 'auto_time_expired' ? (
               <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full text-[10px]">
                 Auto Submitted – Time Expired
@@ -69,7 +84,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            {result.testName}
+            {result.testName || 'Mock Test Report'}
           </h1>
         </div>
 
@@ -113,12 +128,12 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
           </div>
           <div className="my-2">
             <span className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-              {result.finalScore}
+              {finalScoreVal}
             </span>
-            <span className="text-indigo-200 text-sm ml-1">/ {result.maxScore}</span>
+            <span className="text-indigo-200 text-sm ml-1">/ {maxScoreVal}</span>
           </div>
           <div className="text-xs text-indigo-200 font-medium">
-            Score Percentage: <strong className="text-white font-bold">{result.scorePercentage}%</strong>
+            Score Percentage: <strong className="text-white font-bold">{scorePercentVal}%</strong>
           </div>
         </div>
 
@@ -126,7 +141,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Accuracy</span>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 my-1">
-            {result.accuracyPercentage}%
+            {accuracyVal}%
           </div>
           <span className="text-[11px] text-slate-500 font-medium">Of attempted answers</span>
         </div>
@@ -135,7 +150,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total</span>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 my-1">
-            {result.totalQuestions}
+            {result.totalQuestions || 0}
           </div>
           <span className="text-[11px] text-slate-500 font-medium">Questions in paper</span>
         </div>
@@ -147,9 +162,9 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 my-1">
-            {result.correct}
+            {correctCount}
           </div>
-          <span className="text-[11px] text-emerald-800 font-medium">+{result.correct * result.marksPerQuestion} marks</span>
+          <span className="text-[11px] text-emerald-800 font-medium">+{(correctCount * marksPerQ).toFixed(2)} marks</span>
         </div>
 
         {/* 5. Incorrect */}
@@ -159,10 +174,10 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <XCircle className="w-3.5 h-3.5 text-rose-600" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-rose-600 my-1">
-            {result.incorrect}
+            {incorrectCount}
           </div>
           <span className="text-[11px] text-rose-800 font-medium">
-            -{ (result.incorrect * result.negativeMarksPerQuestion).toFixed(2) } marks
+            -{ (incorrectCount * negMarksPerQ).toFixed(2) } marks
           </span>
         </div>
 
@@ -173,7 +188,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <MinusCircle className="w-3.5 h-3.5 text-slate-400" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-600 my-1">
-            {result.unanswered}
+            {unansweredCount}
           </div>
           <span className="text-[11px] text-slate-400 font-medium">0.00 penalty</span>
         </div>
@@ -187,12 +202,12 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         <div className="font-mono bg-white p-3 rounded-xl border border-slate-200 text-xs text-slate-800 overflow-x-auto">
           Final Score = (Correct × Marks Per Question) - (Incorrect × Negative Marks)
           <br />
-          Final Score = ({result.correct} × {result.marksPerQuestion.toFixed(2)}) - ({result.incorrect} × {result.negativeMarksPerQuestion.toFixed(2)})
-          = {(result.correct * result.marksPerQuestion).toFixed(2)} - {(result.incorrect * result.negativeMarksPerQuestion).toFixed(2)}
-          = <strong className="text-indigo-600 font-bold">{result.finalScore}</strong>
+          Final Score = ({correctCount} × {marksPerQ.toFixed(2)}) - ({incorrectCount} × {negMarksPerQ.toFixed(2)})
+          = {(correctCount * marksPerQ).toFixed(2)} - {(incorrectCount * negMarksPerQ).toFixed(2)}
+          = <strong className="text-indigo-600 font-bold">{finalScoreVal}</strong>
         </div>
         <p className="text-[11px] text-slate-500">
-          Unanswered questions ({result.unanswered}) are neither awarded nor penalized.
+          Unanswered questions ({unansweredCount}) are neither awarded nor penalized.
         </p>
       </div>
 

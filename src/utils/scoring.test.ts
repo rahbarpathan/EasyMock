@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreTestSession, calculateNegativeMarkValue } from './scoring';
+import { scoreTestSession, calculateNegativeMarkValue, normalizeTestResult } from './scoring';
 import { TestConfig, TestSession, Question } from '../types';
 
 describe('Scoring Engine', () => {
@@ -152,6 +152,46 @@ describe('Scoring Engine', () => {
     expect(result.incorrect).toBe(0);
     expect(result.finalScore).toBe(0);
     expect(result.questions[0].isCorrect).toBeNull();
+  });
+
+  it('normalizes empty or corrupted result data with safe defaults and history fallback', () => {
+    const fallbackHistoryItem = {
+      id: 'past-test-1',
+      testName: 'My Mock Test',
+      date: 1793990110000,
+      totalQuestions: 150,
+      score: 89,
+      maxScore: 150,
+      accuracy: 59.3,
+      durationMinutes: 120,
+      submissionType: 'manual' as const,
+    };
+
+    // Case 1: resultData was completely undefined / missing in localStorage
+    const normalizedFromNothing = normalizeTestResult(undefined, fallbackHistoryItem);
+    expect(normalizedFromNothing.testName).toBe('My Mock Test');
+    expect(normalizedFromNothing.finalScore).toBe(89);
+    expect(normalizedFromNothing.maxScore).toBe(150);
+    expect(normalizedFromNothing.accuracyPercentage).toBe(59.3);
+    expect(normalizedFromNothing.totalQuestions).toBe(150);
+    expect(normalizedFromNothing.marksPerQuestion).toBe(1);
+    expect(normalizedFromNothing.negativeMarksPerQuestion).toBe(0);
+    expect(normalizedFromNothing.questions.length).toBe(150);
+    // Verify no crashing calling .toFixed(2)
+    expect(normalizedFromNothing.marksPerQuestion.toFixed(2)).toBe('1.00');
+    expect(normalizedFromNothing.negativeMarksPerQuestion.toFixed(2)).toBe('0.00');
+
+    // Case 2: partial resultData with undefined marks and missing questions array
+    const partialResult = {
+      testName: 'Partial Test',
+      finalScore: 45,
+      questions: null,
+    };
+    const normalizedPartial = normalizeTestResult(partialResult);
+    expect(normalizedPartial.testName).toBe('Partial Test');
+    expect(normalizedPartial.marksPerQuestion).toBe(1);
+    expect(normalizedPartial.negativeMarksPerQuestion).toBe(0);
+    expect(Array.isArray(normalizedPartial.questions)).toBe(true);
   });
 });
 

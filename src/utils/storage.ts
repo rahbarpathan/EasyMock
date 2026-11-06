@@ -1,4 +1,5 @@
 import { TestHistoryItem, TestResult, TestSession } from '../types';
+import { normalizeTestResult } from './scoring';
 
 const ACTIVE_SESSION_KEY = 'easymock_active_session_v1';
 const HISTORY_KEY = 'easymock_test_history_v1';
@@ -52,36 +53,82 @@ export function clearActiveSession(): void {
  */
 export function saveTestToHistory(result: TestResult): void {
   try {
+    const normalized = normalizeTestResult(result);
     const history = getTestHistory();
     const historyItem: TestHistoryItem = {
-      id: result.testId,
-      testName: result.testName,
-      date: result.submittedAt,
-      totalQuestions: result.totalQuestions,
-      score: result.finalScore,
-      maxScore: result.maxScore,
-      accuracy: result.accuracyPercentage,
-      durationMinutes: result.durationMinutes,
-      submissionType: result.submissionType,
-      resultData: result,
+      id: normalized.testId,
+      testName: normalized.testName,
+      date: normalized.submittedAt,
+      totalQuestions: normalized.totalQuestions,
+      score: normalized.finalScore,
+      maxScore: normalized.maxScore,
+      accuracy: normalized.accuracyPercentage,
+      durationMinutes: normalized.durationMinutes,
+      submissionType: normalized.submissionType,
+      resultData: normalized,
     };
 
     // Keep the most recent 30 tests
-    const updatedHistory = [historyItem, ...history.filter(h => h.id !== result.testId)].slice(0, 30);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(updatedHistory));
+    const updatedHistory = [historyItem, ...history.filter(h => h.id !== normalized.testId)].slice(0, 30);
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(updatedHistory));
+    } catch (quotaError) {
+      console.warn('LocalStorage quota reached, storing lightweight question history:', quotaError);
+      // Prune bulky question explanations/details to ensure storage fits in localStorage quota
+      const lightweight = updatedHistory.map((h) => ({
+        ...h,
+        resultData: {
+          ...h.resultData,
+          questions: (h.resultData.questions || []).map((q) => ({
+            id: q.id,
+            number: q.number,
+            question: q.question.slice(0, 300),
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            selectedAnswer: q.selectedAnswer,
+            isCorrect: q.isCorrect,
+            isAttempted: q.isAttempted,
+            status: q.status,
+            marks: q.marks,
+            negativeMarks: q.negativeMarks,
+            timeSpentSeconds: q.timeSpentSeconds,
+            scoreAwarded: q.scoreAwarded,
+          })),
+        },
+      }));
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(lightweight));
+    }
   } catch (e) {
     console.error('Failed to save test to history:', e);
   }
 }
 
 /**
- * Gets test history from local storage
+ * Gets test history from local storage, normalizing any legacy or partial entries
  */
 export function getTestHistory(): TestHistoryItem[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as TestHistoryItem[];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.map((item: any) => {
+      // Normalize resultData so viewing any past attempt is always complete and never causes blank pages
+      const resultData = normalizeTestResult(item.resultData || item, item);
+      return {
+        id: item.id || resultData.testId,
+        testName: item.testName || resultData.testName,
+        date: item.date || resultData.submittedAt,
+        totalQuestions: item.totalQuestions ?? resultData.totalQuestions,
+        score: item.score ?? resultData.finalScore,
+        maxScore: item.maxScore ?? resultData.maxScore,
+        accuracy: item.accuracy ?? resultData.accuracyPercentage,
+        durationMinutes: item.durationMinutes ?? resultData.durationMinutes,
+        submissionType: item.submissionType || resultData.submissionType,
+        resultData,
+      };
+    });
   } catch (e) {
     console.error('Failed to parse test history:', e);
     return [];
