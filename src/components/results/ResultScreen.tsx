@@ -61,7 +61,17 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
     if (!timestamp) return 'Recently';
     const date = new Date(timestamp);
     if (isNaN(date.getTime())) return 'Recently';
-    return date.toLocaleDateString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    try {
+      return date.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return date.toLocaleDateString();
+    }
   };
 
   return (
